@@ -10,24 +10,22 @@ private:
     std::vector<unsigned int> data; // Масив для зберігання числа
 
 public:
-    // Конструктор за замовчуванням, створює об'єкт зі значенням 0
+    
     BigNumber() {
         data.push_back(0);
     }
 
-    // Конструктор, який приймає рядок у шістнадцятковому форматі
     BigNumber(const std::string& hexString) {
         data.push_back(0);
         fromHexString(hexString);
     }
 
     
-    // Метод для встановлення числа з рядка у шістнадцятковому форматі
     void fromHexString(const std::string& hexString) {
         // Очищаємо поточне значення
         data.clear();
 
-        // Конвертуємо рядок у шістнадцятковому форматі в беззнакові числа
+    
         std::string hexValue = hexString;
         if (hexValue.substr(0, 2) == "0x") {
             hexValue = hexValue.substr(2); // Видаляємо префікс "0x", якщо він є
@@ -47,7 +45,7 @@ public:
     }
 
 
-    // Метод для повернення числа у шістнадцятковому форматі
+
     std::string toHexString() const {
         std::stringstream hexStream;
         hexStream << std::hex << std::uppercase;
@@ -56,16 +54,15 @@ public:
         }
         std::string hexString = hexStream.str();
 
-        // Перевірка чи результат не є лише нулями
         if (hexString.find_first_not_of('0') != std::string::npos) {
             return "0x" + hexString;
         }
         else {
-            return "0x0"; // Повертаємо 0x0, якщо результат - лише нулі
+            return "0x0"; 
         }
     }
 
-    // Метод побітової інверсії (NOT)
+    
     void INV() {
         for (unsigned int& value : data) {
             value = ~value;
