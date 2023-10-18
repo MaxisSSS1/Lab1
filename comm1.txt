@@ -1,1 +1,246 @@
-1
+
+#include <iostream>
+#include <vector>
+#include <string>
+#include <sstream>
+#include <iomanip>
+
+class BigNumber {
+private:
+    std::vector<unsigned int> data; // Масив для зберігання числа
+
+public:
+    // Конструктор за замовчуванням, створює об'єкт зі значенням 0
+    BigNumber() {
+        data.push_back(0);
+    }
+
+    // Конструктор, який приймає рядок у шістнадцятковому форматі
+    BigNumber(const std::string& hexString) {
+        data.push_back(0);
+        fromHexString(hexString);
+    }
+
+    
+    // Метод для встановлення числа з рядка у шістнадцятковому форматі
+    void fromHexString(const std::string& hexString) {
+        // Очищаємо поточне значення
+        data.clear();
+
+        // Конвертуємо рядок у шістнадцятковому форматі в беззнакові числа
+        std::string hexValue = hexString;
+        if (hexValue.substr(0, 2) == "0x") {
+            hexValue = hexValue.substr(2); // Видаляємо префікс "0x", якщо він є
+        }
+
+        int numDigits = hexValue.size();
+        int numElements = (numDigits + sizeof(unsigned int) * 2 - 1) / (sizeof(unsigned int) * 2);
+
+        data.resize(numElements, 0);
+
+        for (int i = numDigits; i > 0; i -= sizeof(unsigned int) * 2) {
+            int numChars = std::min(i, static_cast<int>(sizeof(unsigned int) * 2));
+            std::string chunk = hexValue.substr(i - numChars, numChars);
+            std::istringstream hexStream(chunk);
+            hexStream >> std::hex >> data[numElements - (i - numChars) / (sizeof(unsigned int) * 2) - 1];
+        }
+    }
+
+
+    // Метод для повернення числа у шістнадцятковому форматі
+    std::string toHexString() const {
+        std::stringstream hexStream;
+        hexStream << std::hex << std::uppercase;
+        for (int i = data.size() - 1; i >= 0; i--) {
+            hexStream << std::setfill('0') << std::setw(sizeof(unsigned int) * 2) << data[i];
+        }
+        std::string hexString = hexStream.str();
+
+        // Перевірка чи результат не є лише нулями
+        if (hexString.find_first_not_of('0') != std::string::npos) {
+            return "0x" + hexString;
+        }
+        else {
+            return "0x0"; // Повертаємо 0x0, якщо результат - лише нулі
+        }
+    }
+
+    // Метод побітової інверсії (NOT)
+    void INV() {
+        for (unsigned int& value : data) {
+            value = ~value;
+        }
+    }
+
+    // Метод побітового виключного або (XOR)
+    void XOR(const BigNumber& other) {
+        for (int i = 0; i < std::max(data.size(), other.data.size()); i++) {
+            if (i >= data.size()) {
+                data.push_back(other.data[i]);
+            }
+            else if (i < other.data.size()) {
+                data[i] ^= other.data[i];
+            }
+        }
+    }
+
+    // Метод побітового або (OR)
+    void OR(const BigNumber& other) {
+        for (int i = 0; i < std::max(data.size(), other.data.size()); i++) {
+            if (i >= data.size()) {
+                data.push_back(other.data[i]);
+            }
+            else if (i < other.data.size()) {
+                data[i] |= other.data[i];
+            }
+        }
+    }
+
+    // Метод побітового і (AND)
+    void AND(const BigNumber& other) {
+        for (int i = 0; i < std::max(data.size(), other.data.size()); i++) {
+            if (i < data.size() && i < other.data.size()) {
+                data[i] &= other.data[i];
+            }
+            else {
+                data[i] = 0;
+            }
+        }
+    }
+
+    // Метод зсуву праворуч на n бітів
+    void shiftR(int n) {
+        int carry = 0;
+        for (unsigned int& value : data) {
+            int newCarry = value & ((1 << n) - 1);
+            value >>= n;
+            value |= (carry << (sizeof(unsigned int) * 8 - n));
+            carry = newCarry;
+        }
+    }
+
+    // Метод зсуву ліворуч на n бітів
+    void shiftL(int n) {
+        int carry = 0;
+        for (int i = data.size() - 1; i >= 0; i--) {
+            int newCarry = (data[i] >> (sizeof(unsigned int) * 8 - n));
+            data[i] <<= n;
+            data[i] |= carry;
+            carry = newCarry;
+        }
+    }
+ 
+    bool operator<(const BigNumber& other) const {
+        if (data.size() < other.data.size()) {
+            return true;
+        }
+        else if (data.size() > other.data.size()) {
+            return false;
+        }
+
+        // Порівнюємо поелементно в зворотньому порядку
+        for (int i = data.size() - 1; i >= 0; i--) {
+            if (data[i] < other.data[i]) {
+                return true;
+            }
+            else if (data[i] > other.data[i]) {
+                return false;
+            }
+        }
+
+        return false; // Рівні числа
+    }
+    // Метод додавання (ADD)
+    void ADD(const BigNumber& other) {
+        unsigned int carry = 0;
+        for (int i = 0; i < std::max(data.size(), other.data.size()) || carry; i++) {
+            if (i == data.size()) {
+                data.push_back(0);
+            }
+            if (i < other.data.size()) {
+                data[i] += carry + other.data[i];
+            }
+            else {
+                data[i] += carry;
+            }
+            carry = data[i] < carry || (i < other.data.size() && data[i] - carry < other.data[i]);
+        }
+    }
+
+    // Метод віднімання (SUB)
+    void SUB(const BigNumber& other) {
+        if (*this < other) {
+            throw std::runtime_error("Subtraction would result in a negative number");
+        }
+        unsigned int borrow = 0;
+        for (int i = 0; i < other.data.size() || borrow; i++) {
+            if (i < other.data.size()) {
+                if (data[i] < borrow + other.data[i]) {
+                    data[i] = data[i] + (1U << (sizeof(unsigned int) * 8)) - borrow - other.data[i];
+                    borrow = 1;
+                }
+                else {
+                    data[i] = data[i] - borrow - other.data[i];
+                    borrow = 0;
+                }
+            }
+            else {
+                if (data[i] < borrow) {
+                    data[i] = data[i] + (1U << (sizeof(unsigned int) * 8)) - borrow;
+                    borrow = 1;
+                }
+                else {
+                    data[i] = data[i] - borrow;
+                    borrow = 0;
+                }
+            }
+        }
+        // Видаляємо зайві нулі
+        while (data.size() > 1 && data.back() == 0) {
+            data.pop_back();
+        }
+    }
+    bool operator>=(const BigNumber& other) const {
+    return !(*this < other);
+}
+    // Метод взяття за модулем (MOD)
+    void MOD(const BigNumber& modulus) {
+        BigNumber dividend(*this);
+        while (dividend >= modulus) {
+            dividend.SUB(modulus);
+        }
+        *this = dividend;
+    }
+
+};
+
+int main() {
+    // Перевірка
+    BigNumber num1("0x403db8ad88a3932a0b7e8189aed9eeffb8121dfac05c3512fdb396dd73f6331c");
+   
+    
+    std::cout << "Number: " << num1.toHexString() << std::endl;
+
+    num1.INV(); // Побітова інверсія
+    num1.XOR(BigNumber("0x36f028580bb02cc8272a9a020f4200e346e276ae664e45ee80745574e2f5ab80")); // Побітове XOR
+    std::cout << "Modified Number1: " << num1.toHexString() << std::endl;
+    num1.OR(BigNumber("0x36f028580bb02cc8272a9a020f4200e346e276ae664e45ee80745574e2f5ab80")); // Побітове OR
+    std::cout << "Modified Number2: " << num1.toHexString() << std::endl;
+    num1.AND(BigNumber("0x33ced2c76b26cae94e162c4c0d2c0ff7c13094b0185a3c122e732d5ba77efebc")); // Побітове AND
+    std::cout << "Modified Number3: " << num1.toHexString() << std::endl;
+    num1.shiftR(4); // Зсув праворуч на 4 біти
+    std::cout << "Modified Number4: " << num1.toHexString() << std::endl;
+    num1.shiftL(2); // Зсув ліворуч на 2 біти
+    std::cout << "Modified Number5: " << num1.toHexString() << std::endl;
+    num1.INV(); // Побітова інверсія
+    std::cout << "Modified Number6: " << num1.toHexString() << std::endl;
+    num1.ADD(BigNumber("0x33ced2c76b26cae94e162c4c0d2c0ff7c13094b0185a3c122e732d5ba77efebc"));
+    std::cout << "Modified Number7: " << num1.toHexString() << std::endl;
+    num1.SUB(BigNumber("0x33ced2c76b26cae94e162c4c0d2c0ff7c13094b0185a3c122e732d5ba77efebc"));
+    std::cout << "Modified Number8: " << num1.toHexString() << std::endl;
+    num1.MOD(BigNumber("0x33ced2c76b26cae94e162c4c0d2c0ff7c13094b0185a3c122e732d5ba77efebc"));
+    std::cout << "Modified Number9: " << num1.toHexString() << std::endl;
+    return 0;
+}
+
+
